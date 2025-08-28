@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environment
+venv/
+env/
+.env
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+
+# User-uploaded media files
+mediafiles/
+
+# Static files collected for production
+staticfiles/
+
+# IDE / Editor specific
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Security
+# It's a good practice to store secrets in a .env file and gitignore it.
+# Example: .env
+
+# Testing
+.coverage
+htmlcov/
+
+# Jupyter Notebook
+.ipynb_checkpoints

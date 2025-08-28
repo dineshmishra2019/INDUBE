@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block title %}My Media{% endblock %}
+
+{% block content %}
+  <h2>My Media</h2>
+  <div class="media-grid">
+    {% for item in media_items %}
+      <div class="media-item">
+        <a href="{% url 'media_detail' item.pk %}">
+          <h3>{{ item.title }}</h3>
+        </a>
+        <p>Status: {% if item.is_public %}Public{% else %}Private{% endif %}</p>
+        {% if item.is_image %}
+          <img src="{{ item.file.url }}" alt="{{ item.title }}">
+        {% else %}
+          <video controls width="250"><source src="{{ item.file.url }}"></video>
+        {% endif %}
+      </div>
+    {% empty %}
+      <p>You haven't uploaded any media yet. <a href="{% url 'upload_media' %}">Upload some!</a></p>
+    {% endfor %}
+  </div>
+{% endblock %}

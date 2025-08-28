@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ item.title }}{% endblock %}
+
+{% block content %}
+  <div style="max-width: 800px; margin: auto;">
+    <h2>{{ item.title }}</h2>
+    <p>
+      Uploaded by: {{ item.owner.username }} on {{ item.uploaded_at|date:"F d, Y" }}
+    </p>
+    <p>
+      Status: {% if item.is_public %}Public{% else %}Private{% endif %}
+    </p>
+
+    {% if item.categories.all %}
+    <p>
+      Categories:
+      {% for category in item.categories.all %}
+        <span style="background-color: #e9ecef; padding: 2px 8px; border-radius: 10px; font-size: 0.9em;">{{ category.name }}</span>
+      {% endfor %}
+    </p>
+    {% endif %}
+
+    {% if item.is_image %}
+      <img src="{{ item.file.url }}" alt="{{ item.title }}" style="max-width: 100%;">
+    {% else %}
+      <video controls style="max-width: 100%;"><source src="{{ item.file.url }}"></video>
+    {% endif %}
+
+    <!-- Actions: Likes and Owner Controls -->
+    <div style="margin-top: 1em; display: flex; align-items: center; gap: 1em; flex-wrap: wrap;">
+      <!-- Like Action -->
+      <div style="display: flex; align-items: center; gap: 0.5em;">
+        {% if user.is_authenticated %}
+          <form action="{% url 'like_media' item.pk %}" method="post" style="margin-bottom: 0;">
+              {% csrf_token %}
+              <button type="submit" title="{% if user_has_liked %}Unlike{% else %}Like{% endif %}" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0; color: {% if user_has_liked %}#007bff{% else %}#6c757d{% endif %}; line-height: 1;">
+                  &#x1F44D; <!-- Thumbs Up Unicode -->
+              </button>
+          </form>
+        {% else %}
+          <span title="Likes" style="font-size: 1.5rem; color: #6c757d; line-height: 1;">&#x1F44D;</span>
+        {% endif %}
+        <span style="font-weight: bold; font-size: 1.1rem;">{{ item.like_count }}</span>
+        {% if not user.is_authenticated %}
+            <small>(<a href="{% url 'login' %}?next={{ request.path }}">Login to like</a>)</small>
+        {% endif %}
+      </div>
+
+      <!-- Owner Actions -->
+      {% if item.owner == user %}
+        <form action="{% url 'delete_media' item.pk %}" method="post" onsubmit="return confirm('Are you sure you want to delete this item?');">
+            {% csrf_token %}
+            <button type="submit" style="background-color: #dc3545; color: white; border: none; padding: 10px 15px; cursor: pointer;">Delete Media</button>
+        </form>
+        <form action="{% url 'toggle_privacy' item.pk %}" method="post">
+            {% csrf_token %}
+            <button type="submit" style="background-color: #007bff; color: white; border: none; padding: 10px 15px; cursor: pointer;">
+                {% if item.is_public %}Make Private{% else %}Make Public{% endif %}
+            </button>
+        </form>
+      {% endif %}
+    </div>
+
+    <!-- Comments Section -->
+    <div style="margin-top: 2em;">
+        <h3>Comments ({{ comments.count }})</h3>
+        <hr>
+        <!-- New Comment Form -->
+        {% if user.is_authenticated %}
+            <form method="post">
+                {% csrf_token %}
+                {{ comment_form.as_p }}
+                <button type="submit" style="padding: 10px 15px;">Post Comment</button>
+            </form>
+            <hr>
+        {% else %}
+            <p><a href="{% url 'login' %}?next={{ request.path }}">Login</a> to post a comment.</p>
+        {% endif %}
+
+        <!-- Existing Comments -->
+        {% for comment in comments %}
+            <div style="border-bottom: 1px solid #eee; padding: 1em 0;">
+                <strong>{{ comment.author.username }}</strong>
+                <span style="color: #888; font-size: 0.9em;">- {{ comment.created_at|timesince }} ago</span>
+                <p style="margin-top: 0.5em;">{{ comment.text|linebreaksbr }}</p>
+            </div>
+        {% empty %}
+            <p>No comments yet. Be the first to comment!</p>
+        {% endfor %}
+    </div>
+  </div>
+{% endblock %}

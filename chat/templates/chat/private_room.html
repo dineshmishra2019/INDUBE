@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Chat with {{ other_user.username }}{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: auto;">
+    <h2>Chat with {{ other_user.username }}</h2>
+    <p>You can talk to the AI assistant by starting your message with <code>@bot</code>. The conversation will be private to you.</p>
+    <div id="chat-log" style="height: 400px; overflow-y: scroll; border: 1px solid #ccc; padding: 1em; margin-bottom: 1em; background-color: #f9f9f9;">
+        {% for message in messages %}
+            <div><strong>{{ message.sender.username }}:</strong> {{ message.text }}</div>
+        {% empty %}
+            <div id="no-messages-placeholder" style="color: #888; text-align: center; padding-top: 2em;">No messages yet. Start the conversation!</div>
+        {% endfor %}
+    </div>
+    <form id="chat-form" style="display: flex; gap: 1em;">
+        <input id="chat-message-input" type="text" autocomplete="off" style="flex-grow: 1; padding: 0.5em;" placeholder="Type a message...">
+        <button id="chat-message-submit" type="submit" style="padding: 0.5em 1em;">Send</button>
+    </form>
+</div>
+
+<script src="{% static 'chat/static/chat/main.js' %}"></script>
+<script>
+    const otherUserId = {{ other_user.id }};
+    const chatLog = document.querySelector('#chat-log');
+    const chatMessageInput = document.querySelector('#chat-message-input');
+    const chatForm = document.querySelector('#chat-form');
+
+    // Scroll to bottom on page load
+    chatLog.scrollTop = chatLog.scrollHeight;
+
+    // Establish WebSocket connection
+    const chatSocket = new WebSocket(
+        'ws://' + window.location.host + '/ws/chat/private/' + otherUserId + '/'
+    );
+
+    chatSocket.onopen = function(e) {
+        console.log('Private chat socket successfully connected.');
+        chatMessageInput.focus();
+    };
+
+    // Handle incoming messages safely
+    chatSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+
+        // Remove placeholder if it exists
+        const placeholder = document.querySelector('#no-messages-placeholder');
+        if (placeholder) {
+            placeholder.remove();
+        }
+
+        appendChatMessage(chatLog, data.username, data.message);
+        // Scroll to the bottom after adding the message
+        chatLog.scrollTop = chatLog.scrollHeight;
+    };
+
+    chatSocket.onclose = function(e) {
+        console.error('Chat socket closed unexpectedly');
+        chatLog.innerHTML += '<div style="color: red;">Connection lost. Please refresh the page.</div>';
+    };
+
+    // Handle form submission
+    chatForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const message = chatMessageInput.value;
+        if (message.trim() === '') { return; }
+        chatSocket.send(JSON.stringify({ 'message': message }));
+        chatMessageInput.value = '';
+    });
+</script>
+{% endblock %}

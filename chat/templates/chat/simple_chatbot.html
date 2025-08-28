@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}Simple AI Chatbot{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: auto;">
+    <h2>Simple AI Chatbot</h2>
+    <p>Ask the AI assistant a question. This chat uses standard HTTP requests.</p>
+    <div id="chat-log" style="height: 400px; overflow-y: scroll; border: 1px solid #ccc; padding: 1em; margin-bottom: 1em; background-color: #f9f9f9;">
+        <!-- Chat messages will appear here -->
+    </div>
+    <form id="chat-form" style="display: flex; gap: 1em;">
+        <select id="model-select" title="Choose an AI model" style="padding: 0.5em; border: 1px solid #ccc; border-radius: 4px; background-color: white;">
+            {% for model in available_models %}
+                <option value="{{ model }}" {% if model == default_model %}selected{% endif %}>{{ model }}</option>
+            {% endfor %}
+        </select>
+        <input id="chat-message-input" type="text" autocomplete="off" style="flex-grow: 1; padding: 0.5em;" placeholder="Ask the AI something...">
+        <button id="chat-message-submit" type="submit" style="padding: 0.5em 1em;">Send</button>
+    </form>
+</div>
+
+<script>
+    const chatLog = document.querySelector('#chat-log');
+    const chatMessageInput = document.querySelector('#chat-message-input');
+    const chatForm = document.querySelector('#chat-form');
+    const modelSelect = document.querySelector('#model-select');
+
+    function appendMessage(username, message) {
+        const messageContainer = document.createElement('div');
+        const userElement = document.createElement('strong');
+        userElement.textContent = username + ': ';
+
+        const messageElement = document.createElement('span');
+        messageElement.textContent = message;
+
+        messageContainer.appendChild(userElement);
+        messageContainer.appendChild(messageElement);
+        chatLog.appendChild(messageContainer);
+        chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    async function sendMessage(event) {
+        event.preventDefault();
+        const message = chatMessageInput.value.trim();
+        const model = modelSelect.value;
+        if (message === '') return;
+
+        appendMessage('{{ request.user.username }}', message);
+        chatMessageInput.value = '';
+        
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.style.color = '#888';
+        loadingIndicator.textContent = 'Thinking...';
+        chatLog.appendChild(loadingIndicator);
+        chatLog.scrollTop = chatLog.scrollHeight;
+
+        try {
+            const response = await fetch("{% url 'chat_api' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ message: message, model: model })
+            });
+
+            chatLog.removeChild(loadingIndicator);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.reply) {
+                appendMessage(`Ollama Bot (${data.model})`, data.reply);
+            } else if (data.error) {
+                appendMessage('Error', data.error);
+            }
+        } catch (error) {
+            if (chatLog.contains(loadingIndicator)) {
+                chatLog.removeChild(loadingIndicator);
+            }
+            appendMessage('Error', `An error occurred: ${error.message}`);
+        }
+    }
+
+    chatForm.addEventListener('submit', sendMessage);
+</script>
+{% endblock %}
