@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -150,4 +151,5 @@ CHANNEL_LAYERS = {
 
 # Ollama Integration Settings
 OLLAMA_HOST = "http://127.0.0.1:11434"
-OLLAMA_MODEL = "llama3" # Change this to your preferred model (e.g., 'mistral', 'gemma')
+OLLAMA_HOST = os.environ.get('OLLAMA_HOST', 'http://127.0.0.1:11434')
+OLLAMA_MODEL = {"llama3", "mistral"} # Change this to your preferred model (e.g., 'mistral', 'gemma')
