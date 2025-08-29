@@ -4,40 +4,511 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Media Sharing Site{% endblock %}</title>
+    <script>
+        // Set theme on initial load to prevent FOUC (Flash of Unstyled Content)
+        (function() {
+            try {
+                const theme = localStorage.getItem('theme') || 'light';
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {
+                console.error("Could not set theme from localStorage", e);
+            }
+        })();
+    </script>
     <style>
-        body { font-family: sans-serif; margin: 2em; }
-        nav { margin-bottom: 1em; border-bottom: 1px solid #ccc; padding-bottom: 1em; }
-        nav a { margin-right: 1em; }
-        .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1em; }
-        .media-item { border: 1px solid #ddd; padding: 1em; }
-        .media-item img, .media-item video { max-width: 100%; height: auto; }
-        .nav-form { display: inline; }
-        .nav-form button { background: none; border: none; padding: 0; font: inherit; color: #007bff; text-decoration: underline; cursor: pointer; }
-        .nav-form button:hover { color: #0056b3; }
+        :root {
+            --bg-color: #f8f9fa;
+            --text-color: #343a40;
+            --text-color-light: #6c757d;
+            --heading-color: #212529;
+            --border-color: #dee2e6;
+            --card-bg: #ffffff;
+            --nav-bg: #ffffff;
+            --link-color: #007bff;
+            --link-hover-color: #0056b3;
+            --shadow-color: rgba(0,0,0,0.05);
+            --shadow-hover-color: rgba(0,0,0,0.1);
+            --form-bg: #fff;
+            --input-border-color: #ced4da;
+        }
+
+        html[data-theme="dark"] {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --text-color-light: #adb5bd;
+            --heading-color: #f8f9fa;
+            --border-color: #343a40;
+            --card-bg: #1e1e1e;
+            --nav-bg: #1e1e1e;
+            --link-color: #81d4fa;
+            --link-hover-color: #a5e2ff;
+            --shadow-color: rgba(255,255,255,0.05);
+            --shadow-hover-color: rgba(255,255,255,0.1);
+            --form-bg: #1e1e1e;
+            --input-border-color: #495057;
+        }
+
+        /* General Body & Typography */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+        }
+
+        main {
+            padding: 0 2em 2em;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1, h2, h3 {
+            color: var(--heading-color);
+        }
+
+        h2 {
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5em;
+            margin-bottom: 1em;
+        }
+
+        a {
+            color: var(--link-color);
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Navigation Bar */
+        nav {
+            background-color: var(--nav-bg);
+            padding: 0.5em 2em;
+            margin-bottom: 2em;
+            box-shadow: 0 2px 4px var(--shadow-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .nav-left, .nav-right {
+            display: flex;
+            align-items: center;
+        }
+
+        nav a {
+            color: var(--link-color);
+            font-weight: 500;
+            margin-right: 1.5em;
+            padding: 0.75em 0;
+            transition: color 0.2s ease;
+            text-decoration: none;
+        }
+
+        nav a:hover {
+            color: var(--link-hover-color);
+            text-decoration: none;
+        }
+
+        .nav-right span {
+            margin-right: 1em;
+            color: var(--text-color-light);
+        }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            margin-right: 1em;
+            display: flex;
+            align-items: center;
+        }
+        .theme-toggle svg {
+            width: 22px;
+            height: 22px;
+            fill: var(--text-color);
+            transition: fill 0.2s ease-in-out;
+        }
+        .theme-icon-moon { display: none; }
+        .theme-icon-sun { display: block; }
+
+        [data-theme="dark"] .theme-icon-moon { display: block; }
+        [data-theme="dark"] .theme-icon-sun { display: none; }
+
+        /* Forms & Buttons */
+        .nav-form {
+            display: inline;
+            margin-left: 1em;
+        }
+
+        .nav-form button, .btn {
+            background-color: var(--link-color);
+            color: white;
+            border: none;
+            padding: 0.5em 1em;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 500;
+            transition: background-color 0.2s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .nav-form button:hover, .btn:hover {
+            background-color: var(--link-hover-color);
+        }
+
+        .nav-form button { /* Specific override for nav logout */
+            background-color: #dc3545;
+        }
+        .nav-form button:hover {
+            background-color: #c82333;
+        }
+
+        form {
+            margin-top: 1em;
+            background: var(--form-bg);
+            padding: 2em;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px var(--shadow-color);
+        }
+
+        form p {
+            margin-bottom: 1em;
+        }
+
+        form input[type="text"],
+        form input[type="password"],
+        form input[type="email"],
+        form input[type="file"],
+        form textarea,
+        form select {
+            width: 100%;
+            padding: 0.6em;
+            margin-top: 0.25em;
+            border: 1px solid var(--input-border-color);
+            border-radius: 4px;
+            box-sizing: border-box;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        form button[type="submit"] {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 0.7em 1.5em;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            transition: background-color 0.2s ease;
+        }
+
+        form button[type="submit"]:hover {
+            background-color: #218838;
+        }
+
+        /* Media Grid */
+        .media-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1.5em;
+        }
+
+        .media-item {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 1em;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px var(--shadow-color);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            text-align: center;
+        }
+
+        .media-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 15px var(--shadow-hover-color);
+        }
+
+        .media-item img, .media-item video {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            margin-bottom: 1em;
+        }
+
+        .media-item h3 {
+            margin-top: 0;
+            font-size: 1.1em;
+        }
+        .media-item p {
+            font-size: 0.9em;
+            color: var(--text-color-light);
+        }
+
+        /* Chat Styling */
+        .chat-container {
+            max-width: 800px;
+            margin: auto;
+        }
+
+        .chat-log {
+            height: 60vh;
+            max-height: 700px;
+            min-height: 300px;
+            overflow-y: auto;
+            padding: 1em;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-color);
+            margin-bottom: 1em;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75em;
+        }
+
+        .chat-message {
+            display: flex;
+            flex-direction: column;
+            max-width: 75%;
+            padding: 0.6em 1em;
+            border-radius: 18px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .chat-message .meta {
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-bottom: 0.3em;
+            color: var(--text-color-light);
+        }
+
+        .chat-message.user {
+            align-self: flex-end;
+            background-color: var(--link-color);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .chat-message.user .meta {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Make user message text in dark mode more readable */
+        html[data-theme="dark"] .chat-message.user {
+            color: #121212; /* Dark text on light blue background */
+            font-weight: 500;
+        }
+        html[data-theme="dark"] .chat-message.user .meta {
+            color: rgba(18, 18, 18, 0.7);
+        }
+
+        .chat-message.other {
+            align-self: flex-start;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-bottom-left-radius: 4px;
+        }
+
+        #chat-form {
+            margin-top: 0;
+            background: transparent;
+            padding: 0;
+            box-shadow: none;
+        }
+
+        .chat-loading {
+            align-self: center;
+            color: var(--text-color-light);
+            font-style: italic;
+            padding: 1em;
+        }
+
+        /* Chat Page Layout */
+        .chat-page-container {
+            display: flex;
+            gap: 2em;
+            align-items: flex-start;
+        }
+
+        .chat-main-panel {
+            flex-grow: 1;
+            min-width: 0; /* Prevents flexbox overflow issues */
+        }
+
+        .chat-sidebar {
+            flex-basis: 250px;
+            flex-shrink: 0;
+            background-color: var(--card-bg);
+            padding: 1em;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            position: sticky;
+            top: 2em;
+        }
+
+        .chat-sidebar h3 {
+            margin-top: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5em;
+        }
+
+        #user-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #user-list li {
+            padding: 0.5em 0;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            body {
+                /* Reduce base font size slightly for better readability on small screens */
+                font-size: 15px;
+            }
+
+            main {
+                padding: 0 1em 1em;
+            }
+
+            /* --- Responsive Navigation --- */
+            nav {
+                flex-direction: column;
+                align-items: stretch; /* Make children take full width */
+                padding: 1em;
+            }
+
+            .nav-left, .nav-right {
+                flex-direction: column;
+                align-items: stretch; /* Make links/buttons take full width */
+                width: 100%;
+            }
+
+            .nav-left a, .nav-right a, .nav-right span {
+                text-align: center;
+                margin: 0;
+                padding: 0.75em;
+                border-bottom: 1px solid #eee;
+            }
+
+            .nav-right {
+                margin-top: 1em;
+                padding-top: 1em;
+                border-top: 1px solid var(--border-color);
+            }
+
+            .nav-right a:last-child, .nav-left a:last-child {
+                border-bottom: none;
+            }
+
+            .nav-form {
+                margin: 0.5em 0 0 0;
+                width: 100%;
+            }
+
+            .nav-form button {
+                width: 100%;
+                padding: 0.75em;
+            }
+
+            /* --- Responsive Grid & Forms --- */
+            .media-grid {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: 1em;
+            }
+
+            form {
+                padding: 1.5em;
+            }
+
+            /* Responsive Chat Layout */
+            .chat-page-container {
+                flex-direction: column-reverse; /* Show input at bottom on mobile */
+            }
+            .chat-sidebar {
+                position: static;
+                width: 100%;
+                box-sizing: border-box;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 { font-size: 1.8em; }
+            h2 { font-size: 1.4em; }
+
+            /* On very small screens, go to a single column layout for media items */
+            .media-grid {
+                grid-template-columns: 1fr;
+            }
+        }
 
     </style>
 </head>
 <body>
     <nav>
-        <a href="{% url 'home' %}">Home (Public Feed)</a>
-        {% if user.is_authenticated %}
-            <a href="{% url 'chat_room' %}">Public Chat</a>
-            <a href="{% url 'chat_users_list' %}">Private Chat</a>
-            <a href="{% url 'simple_chatbot' %}">Simple Chatbot</a>
-            <a href="{% url 'my_media' %}">My Media</a>
-            <a href="{% url 'upload_media' %}">Upload</a>
-            <span>Hello, {{ user.username }}!</span>
-            <form action="{% url 'logout' %}" method="post" class="nav-form">
-                {% csrf_token %}
-                <button type="submit">Logout</button>
-            </form>
-        {% else %}
-            <a href="{% url 'login' %}">Login</a>
-            <a href="{% url 'signup' %}">Sign Up</a>
-        {% endif %}
+        <div class="nav-left">
+            <a href="{% url 'home' %}">Home</a>
+            <a href="{% url 'public_chatbot' %}">Public Chatbot</a>
+            {% if user.is_authenticated %}
+                <a href="{% url 'my_media' %}">My Media</a>
+                <a href="{% url 'upload_media' %}">Upload</a>
+                <a href="{% url 'chat_room' %}">Public Chat</a>
+                <a href="{% url 'ai_chat' %}">AI Chat</a>
+                <a href="{% url 'chat_users_list' %}">Private Chat</a>
+            {% endif %}
+        </div>
+        <div class="nav-right">
+            {% if user.is_authenticated %}
+                <button class="theme-toggle" aria-label="Toggle theme">
+                    <svg class="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12zm0-2a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM11 1h2v3h-2V1zm0 19h2v3h-2v-3zM3.515 4.929l1.414-1.414L7.05 5.636 5.636 7.05 3.515 4.93zM16.95 18.364l1.414-1.414 2.121 2.121-1.414 1.414-2.121-2.121zm2.121-14.85l1.414 1.415-2.121 2.121-1.414-1.414 2.121-2.121zM5.636 16.95l1.414 1.414-2.121 2.121-1.414-1.414 2.121-2.121zM23 11v2h-3v-2h3zM4 11v2H1v-2h3z"/>
+                    </svg>
+                    <svg class="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M10 7a7 7 0 0 0 12 4.9v.1c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2h.1A6.979 6.979 0 0 0 10 7zm-6 5a8 8 0 0 0 15.062 3.762A9 9 0 0 1 8.238 4.938 7.999 7.999 0 0 0 4 12z"/>
+                    </svg>
+                </button>
+                <span>Hello, {{ user.username }}!</span>
+                <form action="{% url 'logout' %}" method="post" class="nav-form">
+                    {% csrf_token %}
+                    <button type="submit">Logout</button>
+                </form>
+            {% else %}
+                <a href="{% url 'login' %}">Login</a>
+                <a href="{% url 'signup' %}">Sign Up</a>
+            {% endif %}
+        </div>
     </nav>
     <main>
         {% block content %}{% endblock %}
     </main>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeToggleButton = document.querySelector('.theme-toggle');
+            if (themeToggleButton) {
+                themeToggleButton.addEventListener('click', () => {
+                    const currentTheme = document.documentElement.getAttribute('data-theme');
+                    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                    document.documentElement.setAttribute('data-theme', newTheme);
+                    try {
+                        localStorage.setItem('theme', newTheme);
+                    } catch (e) {
+                        console.error("Could not save theme to localStorage", e);
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>

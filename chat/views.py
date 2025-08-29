@@ -4,20 +4,13 @@ from django.contrib.auth.models import User
 from .models import Thread
 from django.db.models import Count
 from django.conf import settings
-import httpx
 import json
 from django.http import JsonResponse
-from .utils import get_ollama_response
+from .utils import get_ollama_models, get_ollama_response, get_conversation_chain, save_conversation_history, clear_conversation_history
+from asgiref.sync import sync_to_async
+import logging
 
-def get_ollama_models():
-    """Fetches the list of available models from the Ollama API."""
-    try:
-        response = httpx.get(f"{settings.OLLAMA_HOST}/api/tags", timeout=5.0)
-        response.raise_for_status()
-        models_data = response.json().get('models', [])
-        return [model['name'] for model in models_data]
-    except (httpx.RequestError, json.JSONDecodeError):
-        return [settings.OLLAMA_MODEL]
+logger = logging.getLogger(__name__)
 @login_required
 def chat_room(request):
     return render(request, 'chat/room.html')
@@ -51,14 +44,13 @@ def private_chat_room(request, user_id):
 
     return render(request, 'chat/private_room.html', {'other_user': other_user, 'messages': messages})
 
-@login_required
-def simple_chatbot_view(request):
-    """Renders the simple AJAX-based chatbot page."""
+def public_chatbot_view(request):
+    """Renders the public AJAX-based chatbot page that does not require login."""
     context = {
         'available_models': get_ollama_models(),
         'default_model': settings.OLLAMA_MODEL,
     }
-    return render(request, 'chat/simple_chatbot.html', context)
+    return render(request, 'chat/public_chatbot.html', context)
 
 async def chat_api(request):
     """Handles API calls for the simple chatbot."""
@@ -72,3 +64,51 @@ async def chat_api(request):
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON'}, status=400)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@login_required
+def ai_chat_view(request):
+    """Renders the dedicated AI chat page that uses LangChain."""
+    context = {
+        'available_models': get_ollama_models(),
+        'default_model': settings.OLLAMA_MODEL,
+    }
+    return render(request, 'chat/ai_chat.html', context)
+
+@login_required
+async def ai_chat_api(request):
+    """Handles API calls for the LangChain-powered chatbot with conversation history."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        model = data.get('model', settings.OLLAMA_MODEL)
+        action = data.get('action')
+
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    # Handle clearing history
+    if action == 'clear':
+        await sync_to_async(clear_conversation_history)(request.session, model)
+        return JsonResponse({'status': 'history cleared'})
+
+    # Handle sending a message
+    message = data.get('message')
+    if not message:
+        return JsonResponse({'error': 'Message cannot be empty'}, status=400)
+
+    try:
+        # Get chain with history from session
+        chain = await sync_to_async(get_conversation_chain)(request.session, model)
+        
+        # Run the prediction (blocking I/O) in a separate thread
+        response = await sync_to_async(chain.predict)(input=message)
+
+        # Save the updated history back to the session
+        await sync_to_async(save_conversation_history)(request.session, model, chain)
+
+        return JsonResponse({'reply': response, 'model': model})
+    except Exception as e:
+        logger.error(f"Error in AI chat API: {e}", exc_info=True)
+        return JsonResponse({'error': 'An error occurred while processing your request.'}, status=500)

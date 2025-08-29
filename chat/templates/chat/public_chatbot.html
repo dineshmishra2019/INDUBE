@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block title %}Public AI Chatbot{% endblock %}
+
+{% block content %}
+<div class="chat-container">
+    <h2>Public AI Chatbot</h2>
+    <p>Ask the AI assistant a question. This chat is public and uses standard HTTP requests.</p>
+    <div id="chat-log" class="chat-log">
+        <!-- Chat messages will appear here -->
+    </div>
+    <form id="chat-form" style="display: flex; gap: 1em;">
+        <select id="model-select" title="Choose an AI model">
+            {% for model in available_models %}
+                <option value="{{ model }}" {% if model == default_model %}selected{% endif %}>{{ model }}</option>
+            {% endfor %}
+        </select>
+        <input id="chat-message-input" type="text" autocomplete="off" style="flex-grow: 1;" placeholder="Ask the AI something...">
+        <button id="chat-message-submit" type="submit" class="btn">Send</button>
+    </form>
+</div>
+
+<script>
+    const chatLog = document.querySelector('#chat-log');
+    const chatMessageInput = document.querySelector('#chat-message-input');
+    const chatForm = document.querySelector('#chat-form');
+    const modelSelect = document.querySelector('#model-select');
+
+    function appendMessage(username, message, type) {
+        const messageContainer = document.createElement('div');
+        messageContainer.classList.add('chat-message', type);
+
+        const metaElement = document.createElement('div');
+        metaElement.classList.add('meta');
+        metaElement.textContent = username;
+
+        const textElement = document.createElement('div');
+        textElement.classList.add('text');
+        textElement.textContent = message;
+
+        messageContainer.appendChild(metaElement);
+        messageContainer.appendChild(textElement);
+        chatLog.appendChild(messageContainer);
+        chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    async function sendMessage(event) {
+        event.preventDefault();
+        const message = chatMessageInput.value.trim();
+        const model = modelSelect.value;
+        if (message === '') return;
+
+        appendMessage('{% if request.user.is_authenticated %}{{ request.user.username }}{% else %}You{% endif %}', message, 'user');
+        chatMessageInput.value = '';
+        
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.classList.add('chat-loading');
+        loadingIndicator.textContent = 'Thinking...';
+        chatLog.appendChild(loadingIndicator);
+        chatLog.scrollTop = chatLog.scrollHeight;
+
+        try {
+            const response = await fetch("{% url 'chat_api' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ message: message, model: model })
+            });
+
+            chatLog.removeChild(loadingIndicator);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.reply) {
+                appendMessage(`Ollama Bot (${data.model})`, data.reply, 'other');
+            } else if (data.error) {
+                appendMessage('Error', data.error, 'other');
+            }
+        } catch (error) {
+            if (chatLog.contains(loadingIndicator)) {
+                chatLog.removeChild(loadingIndicator);
+            }
+            appendMessage('Error', `An error occurred: ${error.message}`, 'other');
+        }
+    }
+
+    chatForm.addEventListener('submit', sendMessage);
+</script>
+{% endblock %}

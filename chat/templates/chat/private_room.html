@@ -4,25 +4,28 @@
 {% block title %}Chat with {{ other_user.username }}{% endblock %}
 
 {% block content %}
-<div style="max-width: 800px; margin: auto;">
+<div class="chat-container">
     <h2>Chat with {{ other_user.username }}</h2>
     <p>You can talk to the AI assistant by starting your message with <code>@bot</code>. The conversation will be private to you.</p>
-    <div id="chat-log" style="height: 400px; overflow-y: scroll; border: 1px solid #ccc; padding: 1em; margin-bottom: 1em; background-color: #f9f9f9;">
+    <div id="chat-log" class="chat-log">
         {% for message in messages %}
-            <div><strong>{{ message.sender.username }}:</strong> {{ message.text }}</div>
+            <div class="chat-message {% if message.sender == request.user %}user{% else %}other{% endif %}">
+                <div class="meta">{{ message.sender.username }}</div>
+                <div class="text">{{ message.text }}</div>
+            </div>
         {% empty %}
-            <div id="no-messages-placeholder" style="color: #888; text-align: center; padding-top: 2em;">No messages yet. Start the conversation!</div>
+            <div id="no-messages-placeholder" class="chat-loading" style="text-align: center; padding-top: 2em;">No messages yet. Start the conversation!</div>
         {% endfor %}
     </div>
     <form id="chat-form" style="display: flex; gap: 1em;">
-        <input id="chat-message-input" type="text" autocomplete="off" style="flex-grow: 1; padding: 0.5em;" placeholder="Type a message...">
-        <button id="chat-message-submit" type="submit" style="padding: 0.5em 1em;">Send</button>
+        <input id="chat-message-input" type="text" autocomplete="off" style="flex-grow: 1;" placeholder="Type a message...">
+        <button id="chat-message-submit" type="submit" class="btn">Send</button>
     </form>
 </div>
 
-<script src="{% static 'chat/static/chat/main.js' %}"></script>
 <script>
     const otherUserId = {{ other_user.id }};
+    const currentUsername = "{{ request.user.username }}";
     const chatLog = document.querySelector('#chat-log');
     const chatMessageInput = document.querySelector('#chat-message-input');
     const chatForm = document.querySelector('#chat-form');
@@ -40,19 +43,39 @@
         chatMessageInput.focus();
     };
 
+    function appendMessage(username, message, type) {
+        const messageContainer = document.createElement('div');
+        messageContainer.classList.add('chat-message', type);
+
+        const metaElement = document.createElement('div');
+        metaElement.classList.add('meta');
+        metaElement.textContent = username;
+
+        const textElement = document.createElement('div');
+        textElement.classList.add('text');
+        textElement.textContent = message;
+
+        messageContainer.appendChild(metaElement);
+        messageContainer.appendChild(textElement);
+        chatLog.appendChild(messageContainer);
+    }
+
     // Handle incoming messages safely
     chatSocket.onmessage = function(e) {
         const data = JSON.parse(e.data);
 
-        // Remove placeholder if it exists
-        const placeholder = document.querySelector('#no-messages-placeholder');
-        if (placeholder) {
-            placeholder.remove();
-        }
+        if (data.type === 'chat_message') {
+            // Remove placeholder if it exists
+            const placeholder = document.querySelector('#no-messages-placeholder');
+            if (placeholder) {
+                placeholder.remove();
+            }
 
-        appendChatMessage(chatLog, data.username, data.message);
-        // Scroll to the bottom after adding the message
-        chatLog.scrollTop = chatLog.scrollHeight;
+            const messageType = data.username === currentUsername ? 'user' : 'other';
+            appendMessage(data.username, data.message, messageType);
+            // Scroll to the bottom after adding the message
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
     };
 
     chatSocket.onclose = function(e) {
